@@ -15,7 +15,8 @@ const { generateProfileCard } = require("./lib/generateProfileCard");
 const { generatePostCard } = require("./lib/generatePostCard");
 const { fetchDiscordImage } = require("./lib/fetchImage");
 const { askText, askNumber, askAttachments } = require("./lib/questionnaire");
-const { findAccountByUser, readThreadAccount, writeThreadAccount } = require("./lib/accountStore");
+const { findAccountByUser, findAccountByThread, writeLogAccount } = require("./lib/accountStore");
+const { formatHandle } = require("./lib/canvasHelpers");
 const { UserFacingError, CancelledError, TimeoutError } = require("./lib/errors");
 
 const COMMANDS = [
@@ -100,23 +101,33 @@ async function handleFitfeed(interaction) {
     );
   }
 
-  const existing = await findAccountByUser(forumChannel, userId);
-  const accountData = { discordUserId: userId, username, followers, following };
+  const logChannel = await interaction.client.channels.fetch(process.env.FITFEED_LOG_CHANNEL_ID);
+  if (!logChannel || !logChannel.isTextBased()) {
+    throw new UserFacingError(
+      "Le salon de log configuré (FITFEED_LOG_CHANNEL_ID) est introuvable ou n'est pas un salon textuel."
+    );
+  }
+
+  const existing = await findAccountByUser(logChannel, userId);
 
   if (existing) {
-    const starterMessage = await existing.thread.fetchStarterMessage().catch(() => null);
-    if (starterMessage) {
-      await starterMessage.edit({
-        files: [{ attachment: cardBuffer, name: "fitfeed-compte.png" }],
-        attachments: [],
-      });
+    const thread = await interaction.client.channels.fetch(existing.data.threadId).catch(() => null);
+    if (thread) {
+      const starterMessage = await thread.fetchStarterMessage().catch(() => null);
+      if (starterMessage) {
+        await starterMessage.edit({
+          files: [{ attachment: cardBuffer, name: "fitfeed-compte.png" }],
+          attachments: [],
+        });
+      }
+      if (thread.name !== username) {
+        await thread.setName(username.slice(0, 100)).catch(() => {});
+      }
     }
-    if (existing.thread.name !== username) {
-      await existing.thread.setName(username.slice(0, 100)).catch(() => {});
-    }
-    await writeThreadAccount(existing.thread, accountData, existing.message, avatarBuffer);
+    const accountData = { discordUserId: userId, username, followers, following, threadId: existing.data.threadId };
+    await writeLogAccount(logChannel, accountData, existing.message, avatarBuffer);
     await progressMessage.delete().catch(() => {});
-    await channel.send(`Ton compte FitFeed a été mis à jour ! ${existing.thread}`);
+    await channel.send(`Ton compte FitFeed a été mis à jour !${thread ? ` ${thread}` : ""}`);
   } else {
     const appliedTags = process.env.FITFEED_FORUM_TAG_ID ? [process.env.FITFEED_FORUM_TAG_ID] : undefined;
     const thread = await forumChannel.threads.create({
@@ -124,7 +135,8 @@ async function handleFitfeed(interaction) {
       appliedTags,
       message: { files: [{ attachment: cardBuffer, name: "fitfeed-compte.png" }] },
     });
-    await writeThreadAccount(thread, accountData, null, avatarBuffer);
+    const accountData = { discordUserId: userId, username, followers, following, threadId: thread.id };
+    await writeLogAccount(logChannel, accountData, null, avatarBuffer);
     await progressMessage.delete().catch(() => {});
     await channel.send(`Ton compte FitFeed a été créé ! ${thread}`);
   }
@@ -146,7 +158,14 @@ async function handleFit(interaction) {
     return;
   }
 
-  const account = await readThreadAccount(channel);
+  const logChannel = await interaction.client.channels.fetch(process.env.FITFEED_LOG_CHANNEL_ID);
+  if (!logChannel || !logChannel.isTextBased()) {
+    throw new UserFacingError(
+      "Le salon de log configuré (FITFEED_LOG_CHANNEL_ID) est introuvable ou n'est pas un salon textuel."
+    );
+  }
+
+  const account = await findAccountByThread(logChannel, channel.id);
   if (!account) {
     await interaction.reply({
       content: "Je ne trouve pas de compte FitFeed dans ce post. Utilise `/fitfeed` d'abord pour en créer un.",
@@ -219,7 +238,10 @@ async function handleFit(interaction) {
   });
 
   await progressMessage.delete().catch(() => {});
-  await channel.send({ files: [{ attachment: cardBuffer, name: "fitfeed-post.png" }] });
+  await channel.send({
+    content: `"${formatHandle(account.data.username)}" a posté une nouvelle tenue.`,
+    files: [{ attachment: cardBuffer, name: "fitfeed-post.png" }],
+  });
 }
 
 async function handleCommandError(interaction, err) {

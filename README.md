@@ -15,10 +15,13 @@ Bot Discord pour le réseau social **FitFeed** : les joueurs créent un compte
   demande la description, la localisation ("Soirée de rentrée", etc.) et 1
   à 3 photos, puis publie la carte directement dans ce thread.
 
-Aucune base de données : chaque compte est stocké entièrement dans son
-propre thread (un message épinglé du bot contient les infos + la photo de
-profil d'origine), donc rien n'est perdu si le bot redémarre ou si tu
-redéploies le code — même principe que les bots Fifth Line et Briarstagram.
+Aucune base de données : chaque compte est stocké dans un message que le
+bot poste dans un salon de log dédié, invisible pour les joueurs
+(`FITFEED_LOG_CHANNEL_ID`) — ce message contient les infos du compte + la
+photo de profil d'origine. Le post visible du compte, lui, ne contient
+plus aucune donnée technique. Rien n'est perdu si le bot redémarre ou si
+tu redéploies le code — même principe que les bots Fifth Line et
+Briarstagram.
 
 ## 1. Créer l'application Discord
 
@@ -29,15 +32,16 @@ redéploies le code — même principe que les bots Fifth Line et Briarstagram.
 3. Dans l'onglet **General Information**, note l'**Application ID** (`CLIENT_ID`).
 4. Dans l'onglet **OAuth2 > URL Generator** :
    - Coche **bot** et **applications.commands**.
-   - Dans les permissions du bot, coche au minimum : *View Channels*, *Send Messages*, *Send Messages in Threads*, *Create Public Threads*, *Manage Threads*, *Manage Messages* (nécessaire pour épingler les messages de compte), *Attach Files*, *Read Message History*.
+   - Dans les permissions du bot, coche au minimum : *View Channels*, *Send Messages*, *Send Messages in Threads*, *Create Public Threads*, *Manage Threads*, *Attach Files*, *Read Message History*.
    - Copie le lien généré en bas de page, ouvre-le dans un navigateur, et invite le bot sur ton serveur.
 
 ## 2. Préparer les salons Discord
 
-Il te faut deux salons :
+Il te faut trois salons :
 
 1. Un salon **texte normal** où les joueurs tapent `/fitfeed` (le "salon bot"). Note son ID (clic droit sur le salon > Copier l'ID — active d'abord le mode développeur dans Discord : Réglages > Avancés > Mode développeur).
 2. Un salon **Forum** où les comptes (posts) seront créés. Note son ID de la même façon.
+3. Un salon **texte, privé (staff uniquement)** qui sert de "log" technique : c'est là que le bot range les données de chaque compte (invisible pour les joueurs). Un simple salon texte avec les permissions visibles seulement par le staff/le bot suffit. Note son ID de la même façon.
 
 Si tu veux qu'un tag soit automatiquement appliqué à chaque nouveau post du forum, crée ce tag dans les paramètres du forum et note son ID (clic droit sur le tag dans les paramètres, ou via le mode développeur).
 
@@ -51,6 +55,7 @@ CLIENT_ID=...
 GUILD_ID=...
 FITFEED_ACCOUNT_CHANNEL_ID=...
 FITFEED_FORUM_CHANNEL_ID=...
+FITFEED_LOG_CHANNEL_ID=...
 FITFEED_FORUM_TAG_ID=   (optionnel)
 ```
 
@@ -79,7 +84,7 @@ deploy-commands.js          enregistrement manuel des commandes (debug local)
 lib/
   generateProfileCard.js    dessine la carte de compte (canvas)
   generatePostCard.js       dessine la carte de post/tenue (1, 2 ou 3 photos)
-  accountStore.js           lit/écrit les données de compte dans Discord (pas de DB)
+  accountStore.js           lit/écrit les données de compte dans le salon de log (pas de DB)
   questionnaire.js          pose les questions une par une, gère "annuler" et le délai
   fetchImage.js             télécharge les photos + conversion HEIC (iPhone)
   parseCount.js             parse "128", "1.2k", "3 400"... en nombre
@@ -96,3 +101,5 @@ licenses/                   licences OFL des polices ci-dessus
 - Le bouton "Shop le look" et la ligne like/commentaire/partager/enregistrer sur les posts sont pour l'instant **décoratifs** (aucune boutique n'est branchée derrière) — c'est un gabarit visuel, pas une fonctionnalité d'achat.
 - Si un joueur refait `/fitfeed` alors qu'il a déjà un compte, son post existant est mis à jour (nouvelle carte, nouveaux compteurs) plutôt que d'en créer un second.
 - Seul le joueur qui a créé un compte peut faire `/fit` dans son propre post.
+- Quand un joueur publie une tenue avec `/fit`, le bot ajoute un petit texte au-dessus de la carte : `"@untel" a posté une nouvelle tenue.`
+- Le salon de log (`FITFEED_LOG_CHANNEL_ID`) grossit au fil du temps (un message par compte, mis à jour à chaque `/fitfeed`) — c'est normal et voulu, c'est lui qui fait office de base de données. Ne supprime pas ces messages.
