@@ -32,7 +32,7 @@ Briarstagram.
 3. Dans l'onglet **General Information**, note l'**Application ID** (`CLIENT_ID`).
 4. Dans l'onglet **OAuth2 > URL Generator** :
    - Coche **bot** et **applications.commands**.
-   - Dans les permissions du bot, coche au minimum : *View Channels*, *Send Messages*, *Send Messages in Threads*, *Create Public Threads*, *Manage Threads*, *Attach Files*, *Read Message History*.
+   - Dans les permissions du bot, coche au minimum : *View Channels*, *Send Messages*, *Send Messages in Threads*, *Create Public Threads*, *Manage Threads*, *Manage Messages* (nécessaire pour que le bot nettoie les messages du questionnaire après chaque `/fitfeed`/`/fit`), *Attach Files*, *Read Message History*.
    - Copie le lien généré en bas de page, ouvre-le dans un navigateur, et invite le bot sur ton serveur.
 
 ## 2. Préparer les salons Discord
